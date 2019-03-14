@@ -31,28 +31,6 @@ Vector gravityAccel;
 
 //-----------------------------------------------------------------
 
-/*
-Something like this for detectiion of whether two object are close to each other?
-
-createGrid(simulationWorld)
-{
-	array[x world size]
-	array[y world size]
-	array[z world size]		Do we even have a z world size? If not size of 50 mabye? Cannot see it ever needing to be more
-	
-	
-}
-
-checkCloseness()
-{
-	rigidBody &Body = BodyList[numberOfBodies];
-	rigidBody::configuration &configuration = Body.configState[configurationIndex];
-	
-	
-}
-
-*/
-
 //Convenience functions
 void getPosRotSides(rigidBody &Body)
 {
@@ -375,16 +353,10 @@ cout << "~~~Source, Target configuration indexes: " << SourceConfigIndex << "," 
 cout << "\n~~~Start target CM position" << endl;
 cout << "Source CM vel: " << source.CMvelocity << endl;
 cout << "Source CM position: " << source.CMposition << endl;
+
 		target.CMposition = source.CMposition + DeltaTime*source.CMvelocity;
-cout << "Target CM position: " << target.CMposition << endl;
 		
-		//Integrating to get the Orientation of the body
-		//target.orientation = source.orientation + tildaMultiply(source.angularVelocity, source.CMposition);
-cout << "\n~~~Start target orientation" << endl;
-cout << "Source orientation: " << source.orientation << endl;
-cout << "Source angularVelocity: " << source.angularVelocity << endl;
-		target.orientation = tildaMultiply(source.orientation, source.angularVelocity);
-cout << "Target orientation: " << target.orientation << endl;
+cout << "Target CM position: " << target.CMposition << endl;
 		
 		//Velocity
 cout << "\n~~~Start target velocity" << endl;
@@ -394,17 +366,30 @@ cout << "BodyList[i].oneOverMass" << BodyList[i].oneOverMass << endl;
 cout << "Source CM force: " << source.CMforce << endl;
 
 		target.CMvelocity = source.CMvelocity + (DeltaTime * BodyList[i].oneOverMass) * source.CMforce;
+		
 cout << "Target CM velocity: " << target.CMvelocity << endl;
+
+		//Integrating to get the Orientation of the body
+		//target.orientation = source.orientation + tildaMultiply(source.angularVelocity, source.CMposition);
+cout << "\n~~~Start target orientation" << endl;
+cout << "Source orientation: " << source.orientation << endl;
+cout << "Source angularVelocity: " << source.angularVelocity << endl;
+
+		target.orientation = DeltaTime * tildaMultiply(source.angularVelocity, source.orientation); //This isn't correct - actually Ben, it appears that it is.
+		
+cout << "Target orientation: " << target.orientation << endl;
 		
 		//Angular momentum
 cout << "\n~~~Start target angularMomentum" << endl;
 cout << "Source angular momentum: " << source.angularMomentum << endl;
 cout << "Delta time: " << DeltaTime << endl;
 cout << "Source torque: " << source.torque << endl;
+
 		target.angularMomentum = source.angularMomentum + DeltaTime * source.torque;
-cout << "Target torque: " << target.torque << endl;
 		
-		int reorthogonalizationRotor = 3;
+cout << "Target angular momentum: " << target.angularMomentum << endl;
+		
+		int reorthogonalizationRotor = 2;
 		int &reorthRef = reorthogonalizationRotor;
 		//Reorthogonalize to remove weird bits
 		target.orientation.reorthogonalize(reorthRef);
@@ -413,14 +398,18 @@ cout << "\n~~~Reorthogonalized orientation: " << target.orientation << endl;
 		//inertia tensor
 cout << "\n~~~Start inverse world space inertia tensor" << endl;
 cout << "Inverse body space IT: " << BodyList[i].oneOverBodySpaceInertiaTensor << endl;
+
 		target.oneOverWorldSpaceInertiaTensor = target.orientation * BodyList[i].oneOverBodySpaceInertiaTensor * transpose(target.orientation);
+		
 cout << "Target inverse world space IT: " << target.oneOverWorldSpaceInertiaTensor << endl;
 		
 		//angular velocity
 cout << "\n~~~Start angular velocity" << endl;
 cout << "target inverse world space IT: " << target.oneOverWorldSpaceInertiaTensor << endl;
 cout << "target angular momentum: " << target.angularMomentum << endl;
+
 		target.angularVelocity = target.oneOverWorldSpaceInertiaTensor * target.angularMomentum;
+		
 cout << "Target angular velocity: " << target.angularVelocity << endl;
 	}
 cout << "End integrate" << endl;
@@ -525,7 +514,7 @@ static void start()
 	WorldObject = new simulation_world(100.0, 100.0, 100.0);
 	
 	float cubeSizeTest[3] = {0.5, 0.5, 0.5};
-	float cubePosTest[3] = {0.0, 0.0, 3.0};
+	float cubePosTest[3] = {0.0, 5.0, 0.0};
 	
 	WorldObject->buildCubeBody(10.0, cubeSizeTest, cubePosTest, 1.0);
 }
