@@ -1,3 +1,11 @@
+/*
+Original version by Alastair Channon: a.d.channon@keele.ac.uk
+
+Amended version by Ben Shallcroft: b@shallcroft.com
+	Amended version adds a matrix function create a skew symmetric matrix. Found in the matrix class.
+
+*/
+
 #ifndef   DONOTINLINE_math3d
 #ifndef   math3d_h
 #warning All of the functions in this file are "extern inline".  Unless compiling with -DDONOTINLINE_math3d, this file is #included by its .h file and should not be compiled separately.
@@ -289,6 +297,18 @@ Similarly for second and third columns of R (where ".x"s are replaced by ".y"s a
        (x*y-x*y*c+z*s y*y+(1-y*y)*c z*y-z*y*c-x*s)   (xyd+zs c+yyd  zyd-xs)   (xyd+zs c+yyd  yzd-xs)
        (x*z-x*z*c-y*s y*z-y*z*c+x*s z*z+(1-z*z)*c)   (xzd-ys yzd+xs c+zzd )   (xzd-ys yzd+xs c+zzd )
 */
+
+//Added by Ben Shallcroft
+extern_inline Matrix skewSymmetric(const Vector& v)
+{
+	Matrix rM;
+	rM.m00 = 0.0;  rM.m01 = -v.z; rM.m02 = v.y;
+	rM.m10 = v.z;  rM.m11 = 0.0;  rM.m12 = -v.x;
+	rM.m20 = -v.y; rM.m21 = v.x;  rM.m22 = 0.0;
+	
+	return rM;
+}
+
 
 // convenience functions -----------------------------------------------------------------------------------------------------------
 

@@ -1,3 +1,11 @@
+/*
+Original version by Alastair Channon: a.d.channon@keele.ac.uk
+
+Amended version by Ben Shallcroft: b@shallcroft.com
+	Amended version adds a matrix function create a skew symmetric matrix. Found in the matrix class.
+
+*/
+
 #ifndef   math3d_h
 #define   math3d_h
 
@@ -68,6 +76,9 @@ extern_inline void   tildaMultiply(const Matrix& M, const Vector& v, Matrix& rM)
 extern_inline Vector transposeMultiply(const Matrix& M, const Vector& v); // returns transpose(M) * v
 
 extern_inline Matrix rotationMatrix(const real& angle, const Vector& axis, bool axisIsUnitLength=false); // return the matrix that rotates angle radians about axis
+
+//Added by Ben Shallcroft
+extern_inline Matrix skewSymmetric(const Vector& v);
 
 // convenience functions to output to std::cout
 extern_inline void o(const Vector& v);
