@@ -19,6 +19,9 @@ struct rigidBody
 	enum{maxBoundingVertexes = 20};
 	Vector BodyBoundingVertexes[maxBoundingVertexes];
 	
+	int reorthogonalizationRotor = 0;
+	int &reorthRef = reorthogonalizationRotor;
+	
 	enum{maxConfigStates = 2};
 	
 	struct configuration
@@ -54,7 +57,6 @@ class simulation_world
 			penetrating, colliding, clear //If bodies are inside each other, just colliding, or not colliding at all
 		} collisionState;
 		
-		
 		Vector collisionNormal;
 		int collidingBodyIndex;
 		int collidingCornerIndex;
@@ -69,6 +71,13 @@ class simulation_world
 		
 		void calculateVertices(int configurationIndex);
 		
+		enum{numberOfWorldPlanes = 1};
+		struct planes
+		{
+			Vector planeNormal;
+			float d;
+		}worldPlanes[numberOfWorldPlanes];
+		
 		int SourceConfigIndex;
 		int TargetConfigIndex;
 		
@@ -82,4 +91,4 @@ class simulation_world
 		void Simulate(double DeltaTime);
 		void render();
 		//int getNumOfBodies(){return numberOfBodies;}	
-};
+};	
