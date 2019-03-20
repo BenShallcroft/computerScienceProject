@@ -54,7 +54,7 @@ void getPosRotSides(rigidBody &Body)
 	bodyRot[11] = 0.0;
 	*/
 	
-	/*
+	
 	bodyRot[0] = Body.configState[0].orientation.m00;
 	bodyRot[1] = Body.configState[0].orientation.m01;
 	bodyRot[2] = Body.configState[0].orientation.m02;
@@ -67,9 +67,17 @@ void getPosRotSides(rigidBody &Body)
 	bodyRot[9] = Body.configState[0].orientation.m21;
 	bodyRot[10] = Body.configState[0].orientation.m22;
 	bodyRot[11] = 0.0;
+cout << "Get pos rot sides function - bodyRot: ";
+for(int i = 0; i < 12; i++)
+{
+	cout << bodyRot[i];
+	cout << ", ";
+}
+cout << endl;
 //cout << "bodyRot[10] from getPosRotSides method: " << bodyRot[10] << endl;
-	*/
 	
+	
+	/*
 	bodyRot[0] = 1.0;
 	bodyRot[1] = 0.0;
 	bodyRot[2] = 0.0;
@@ -84,7 +92,7 @@ void getPosRotSides(rigidBody &Body)
 	bodyRot[9] = 0.0;
 	bodyRot[10] = 1.0;
 	bodyRot[11] = 0.0;
-
+	*/
 }
 
 //-----------------------------------------------------------------Simulation world initialization
@@ -161,7 +169,7 @@ cout << "Body mass: " << Mass << endl;
 		source.oneOverWorldSpaceInertiaTensor.zero();
 		target.oneOverWorldSpaceInertiaTensor.zero();
 		source.angularVelocity.zero();
-		source.angularVelocity.x = 0.5;
+		//source.angularVelocity.x = 0.5;
 		target.angularVelocity.zero();
 	
 		Body.oneOverMass = 1.0 / Mass;
