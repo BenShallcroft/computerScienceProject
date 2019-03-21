@@ -19,7 +19,7 @@ struct rigidBody
 	enum{maxBoundingVertexes = 20};
 	Vector BodyBoundingVertexes[maxBoundingVertexes];
 	
-	int reorthogonalizationRotor = 0;
+	int reorthogonalizationRotor = 3;
 	int &reorthRef = reorthogonalizationRotor;
 	
 	enum{maxConfigStates = 2};
@@ -49,7 +49,6 @@ struct rigidBody
 class simulation_world
 {
 	private:		
-		float worldX, worldY, worldZ;
 		
 		//Collision part
 		enum collision_state

@@ -59,6 +59,7 @@ class Matrix {
    inline Matrix operator-() const;
    inline void zero();
    inline void reorthogonalize(int& reorthogonalizeRotor);
+   inline void reorthogonalize();
 };
 
 extern_inline std::ostream& operator<< (std::ostream& out, const Matrix& M);

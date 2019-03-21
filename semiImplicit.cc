@@ -25,7 +25,6 @@ float const angularDamping = 0.001f;
 
 Vector gravityAccel;
 
-
 //-----------------------------------------------------------------Get pos rot sides function
 void getPosRotSides(rigidBody &Body)
 {
@@ -95,24 +94,384 @@ cout << endl;
 	*/
 }
 
-//-----------------------------------------------------------------Simulation world initialization
-simulation_world::simulation_world(float worldX, float worldY, float worldZ) :SourceConfigIndex(0), TargetConfigIndex(1)
+//-----------------------------------------------------------------Check for collisions
+simulation_world::collision_state
+simulation_world::checkForCollisions(int configurationIndex)
 {
-	//buildCubeBody(5.0, 0.5, 0.5, 0.5, 1.0); //Initial body with density 5.0, dimensions of 1 on each edge, coefficient of restitution 1.0.
-	Vector placeHolderVector;
+cout << "Start check for collisions function" << endl;
+	collisionState = clear;
+cout << "Collision state start: " << collisionState << endl;
+	float const DepthEpsilon = 0.001f;
 	
-	placeHolderVector.x = 0.0;
-	placeHolderVector.y = 0.0;
-	placeHolderVector.z = 1.0;
+	for(int BodyIndex = 0; (BodyIndex < numberOfBodies)&&(collisionState != penetrating); BodyIndex++)
+	{
+		rigidBody &Body = BodyList[BodyIndex];
+		rigidBody::configuration &configuration = Body.configState[configurationIndex];
+		
+		for(int unsigned counter = 0; (counter < Body.boundingVertexes) && (collisionState != penetrating); counter++)
+		{
+cout << "~~~~~~~" << endl;
+cout << "collisionState != penetrating" << endl;
+			Vector position;
+			Vector U;
+			Vector velocity;
+			position = configuration.BodyBoundingVertexes[counter];
+cout << "Vertex position: " << position << endl;
+			U = position - configuration.CMposition;
+cout << "Body CM position: " << configuration.CMposition << endl;
+cout << "U = position - CM position: " << U << endl;
+			
+			velocity = configuration.CMvelocity + (configuration.angularVelocity % U); //% is cross product
+cout << "Velocity: " << velocity << endl;
+			
+			for(int planeIndex = 0; (planeIndex < numberOfWorldPlanes) && (collisionState != penetrating); planeIndex++)
+			{
+				planes &plane = worldPlanes[planeIndex];
+				
+				float axbyczd = dotProduct(position, plane.planeNormal) + plane.d;
+cout << "axbyczd (pos DOT planeNormal + plane.d): " << axbyczd << endl;
+				
+				if(axbyczd < -DepthEpsilon)
+				{
+cout << "axbyczd < - depth epsilon" << endl;
+					collisionState = penetrating;
+					cout << "Body collision state = penetrating" << endl;
+				}
+				else if(axbyczd < DepthEpsilon)
+				{
+cout << "axbyczd < - depth epsilon" << endl;
+					float relativeVelocity = dotProduct(plane.planeNormal, velocity);
+					
+					if(relativeVelocity < 0)
+					{
+						collisionState = colliding;
+						cout << "Body collision state = colliding" << endl;
+						collisionNormal = plane.planeNormal;
+						collidingCornerIndex = counter;
+cout << "Colliding corner index: " << collidingCornerIndex << endl;
+						collidingBodyIndex = BodyIndex;
+cout << "Colliding body index: " << collidingBodyIndex << endl;
+					}
+				}
+			}
+		}
+	}
 	
-	worldPlanes[0].planeNormal = placeHolderVector;
-	worldPlanes[0].d = worldY/2;
-	
-	calculateVertices(0);
+	return collisionState;
 }
 
-simulation_world::~simulation_world()
+//-----------------------------------------------------------------Resolve collisions
+void simulation_world::resolveCollisions(int configurationIndex)
 {
+cout << "~~~Start resolve configuration index~~~" << endl;
+cout << "Colliding body index: " << collidingBodyIndex << endl;
+cout << "Colliding corner index: " << collidingCornerIndex << endl;
+
+	rigidBody &Body = BodyList[collidingBodyIndex];
+	rigidBody::configuration &configuration = Body.configState[configurationIndex];
+	
+	Vector position;
+	position = configuration.BodyBoundingVertexes[collidingCornerIndex];
+cout << "Colliding corner index: " << position << endl;
+	
+	Vector R;
+	R = position - configuration.CMposition;
+cout << "R - distance to colliding corner from CM position: " << R << endl;
+	
+	Vector velocity;
+	velocity = configuration.CMvelocity + (configuration.angularVelocity % R); //Cross product
+cout << "Velocity: " << velocity << endl;
+	
+	//removed a negative from the start of the next line
+	float impulseNumerator = (1 + Body.coefficientOfRestitution) * dotProduct(velocity, collisionNormal);
+cout << "Impulse numerator: " << impulseNumerator << endl;
+	
+	float impulseDenominator = Body.oneOverMass + dotProduct( ( (configuration.oneOverWorldSpaceInertiaTensor*(R % collisionNormal)) % R ), collisionNormal );
+cout << "Impulse denominator: " << impulseDenominator << endl;
+	
+	Vector impulse;
+	impulse = (impulseNumerator/impulseDenominator) * collisionNormal;
+cout << "Impulse: " << impulse << endl;
+	
+	
+	configuration.CMvelocity += (Body.oneOverMass * impulse);
+cout << "CM velocity: " << configuration.CMvelocity << endl;
+	configuration.angularMomentum += (R % impulse);
+cout << "Body angular momenutm: " << configuration.angularMomentum << endl;
+	
+	configuration.angularVelocity = (configuration.oneOverWorldSpaceInertiaTensor * configuration.angularMomentum);
+cout << "Body angular velocity: " << configuration.angularVelocity << endl;
+}
+
+//-----------------------------------------------------------------render
+void simulation_world::render()
+{
+	//Test Render
+	for(int counter = 0; counter < numberOfBodies; counter++)
+	{
+		rigidBody &Body = BodyList[counter];
+		
+		getPosRotSides(Body);
+		
+		dsDrawBox(bodyPos, bodyRot, bodySides);
+	}
+	
+	/*//TEST DRAW OF A BOX
+	float sidesTest[3] = {1.0, 1.0, 1.0};
+	float rotTest[12] = {1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0};
+	float posTest[3] = {1.0, 0.0, 0.0};
+	
+	dsDrawBox(posTest, rotTest, sidesTest);
+	*/
+}
+
+//-----------------------------------------------------------------Calculate vertices
+void simulation_world::calculateVertices(int configurationIndex)
+{
+	for(int counter = 0; counter < numberOfBodies; counter++)
+	{
+		rigidBody &Body = BodyList[counter];
+		rigidBody::configuration &configuration = Body.configState[configurationIndex];
+		
+		Matrix const &orient = configuration.orientation;
+cout << "Calculate vertices:: orient:\n" << orient << endl;
+		Vector const &posit = configuration.CMposition;
+cout << "Calculate vertices:: posit:\n" << posit << endl;
+		
+		assert(Body.boundingVertexes < Body.maxBoundingVertexes);
+		for(int unsigned i = 0; i < Body.boundingVertexes; i++)
+		{
+cout << "Calculate vertices:: Before Body bounding vertexes: " << configuration.BodyBoundingVertexes[i] << endl;
+			configuration.BodyBoundingVertexes[i] = posit + orient * Body.BodyBoundingVertexes[i];
+cout << "Calculate vertices:: After Body bounding vertexes:" << configuration.BodyBoundingVertexes[i] << endl; 
+		}
+	}
+}
+
+//-----------------------------------------------------------------Integrate
+void simulation_world::integrate(double DeltaTime)
+{
+cout << "\n~~~~~~~~~~~~~~~~~" << endl;
+cout << "Started simulation_world::integrate" << endl;
+	int i;
+
+cout << "integrate:: Delta time : " << DeltaTime << endl;
+
+	for(i = 0; i < numberOfBodies; i++)
+	{
+cout << "\n~~~Body " << i << endl;
+		rigidBody::configuration &source = BodyList[i].configState[SourceConfigIndex];
+		rigidBody::configuration &target = BodyList[i].configState[TargetConfigIndex];
+		
+cout << "~~~Source, Target configuration indexes: " << SourceConfigIndex << "," << TargetConfigIndex << endl;
+		
+		//Integrating to get the CM position from the initial position.
+cout << "\n~~~Start target CM position" << endl;
+cout << "Source CM vel: " << source.CMvelocity << endl;
+cout << "Source CM position: " << source.CMposition << endl;
+
+		target.CMposition = source.CMposition + DeltaTime*source.CMvelocity;
+		
+cout << "Target CM position: " << target.CMposition << endl;
+		
+		//Velocity
+cout << "\n~~~Start target velocity" << endl;
+cout << "Source CM vel: " << source.CMvelocity << endl;
+cout << "Delta time: " << DeltaTime << endl;
+cout << "BodyList[i].oneOverMass" << BodyList[i].oneOverMass << endl;
+cout << "Source CM force: " << source.CMforce << endl;
+
+		target.CMvelocity = source.CMvelocity + (DeltaTime * BodyList[i].oneOverMass) * source.CMforce;
+		
+cout << "Target CM velocity: " << target.CMvelocity << endl;
+
+		//Integrating to get the Orientation of the body
+		//target.orientation = source.orientation + tildaMultiply(source.angularVelocity, source.CMposition);
+cout << "\n~~~Start target orientation" << endl;
+cout << "Source orientation: " << source.orientation << endl;
+cout << "Source angularVelocity: " << source.angularVelocity << endl;
+
+		Matrix skewSymmetricAngVel;		
+		skewSymmetricAngVel = skewSymmetric(source.angularVelocity);
+cout << "Skew symmetric angular velocity: " << skewSymmetricAngVel << endl;
+		target.orientation = DeltaTime * (skewSymmetricAngVel * source.orientation);
+		
+		//target.orientation = DeltaTime * tildaMultiply(source.angularVelocity, source.orientation); //This isn't correct - actually Ben, it appears that it is.
+		
+cout << "Target orientation: " << target.orientation << endl;
+		
+		//Angular momentum
+cout << "\n~~~Start target angularMomentum" << endl;
+cout << "Source angular momentum: " << source.angularMomentum << endl;
+cout << "Delta time: " << DeltaTime << endl;
+cout << "Source torque: " << source.torque << endl;
+
+		target.angularMomentum = source.angularMomentum + DeltaTime * source.torque;
+		
+cout << "Target angular momentum: " << target.angularMomentum << endl;
+
+		//Reorthogonalize to remove weird bits
+		/*
+		int reorthogonalizationRotor = 2;
+		int &reorthRef = reorthogonalizationRotor;
+		*/
+		cout << "Target orientation: " << target.orientation << endl;
+		
+		/*
+		for(int i = 0; i<=6; i++)
+		{
+			target.orientation.reorthogonalize(BodyList[i].reorthRef);
+		}
+		*/
+		
+		target.orientation.reorthogonalize();
+		
+		//target.orientation.reorthogonalize(BodyList[i].reorthRef);
+cout << "\n~~~Reorthogonalized orientation: " << target.orientation << endl;
+		
+		//inertia tensor
+cout << "\n~~~Start inverse world space inertia tensor" << endl;
+cout << "Inverse body space IT: " << BodyList[i].oneOverBodySpaceInertiaTensor << endl;
+
+		target.oneOverWorldSpaceInertiaTensor = target.orientation * BodyList[i].oneOverBodySpaceInertiaTensor * transpose(target.orientation);
+		
+cout << "Target inverse world space IT: " << target.oneOverWorldSpaceInertiaTensor << endl;
+		
+		//angular velocity
+cout << "\n~~~Start angular velocity" << endl;
+cout << "target inverse world space IT: " << target.oneOverWorldSpaceInertiaTensor << endl;
+cout << "target angular momentum: " << target.angularMomentum << endl;
+
+		target.angularVelocity = target.oneOverWorldSpaceInertiaTensor * target.angularMomentum;
+		
+cout << "Target angular velocity: " << target.angularVelocity << endl;
+	}
+cout << "End integrate" << endl;
+cout << "~~~~~~~~~~~~~~~~~\n\n" << endl;
+}
+
+//-----------------------------------------------------------------Compute forces
+void simulation_world::computeForces(int configurationIndex)
+{
+cout << "\n~~~~~~~~~~~~~~~~~" << endl;
+cout << "Started compute Forces" << endl;
+
+cout << "configuration index input: " << configurationIndex << endl;
+	int i;
+	
+	for(i = 0; i < numberOfBodies; i++)
+	{
+		rigidBody &Body = BodyList[i];
+		rigidBody::configuration &configuration = Body.configState[configurationIndex];
+		
+		//TEST
+		configuration.torque.zero();
+		configuration.CMforce.zero();
+		
+		//Adding the force that the gravity acceleration imparts on the body
+		//configuration.torque += (gravityAccel / Body.oneOverMass);  //Where did this come from?
+		configuration.CMforce += gravityAccel / Body.oneOverMass;
+cout << "Compute forces linear, angular damping: " << -linearDamping << ", " << -angularDamping << endl;
+cout << "Compute forces CM velocity: " << configuration.CMvelocity << endl;
+cout << "Compute forces angular velocity: " << configuration.angularVelocity << endl;
+		
+		//There's always a little damping force on the body even if there's no defined damping
+		configuration.CMforce += -linearDamping * configuration.CMvelocity;	//Acts in opposite direction to vertical movement.
+
+		configuration.torque += -angularDamping * configuration.angularVelocity; //Acts in every direction of motion.
+		
+cout << "Final compute forces CM force: " << configuration.CMforce << endl;
+cout << "Final compute forces torque: " << configuration.torque << endl;
+	}
+cout << "End compute forces" << endl;
+cout << "~~~~~~~~~~~~~~~~~\n" << endl;
+}
+
+//-----------------------------------------------------------------Simulate
+void simulation_world::Simulate(double DeltaTime)
+{
+cout << "Started simulation_world::Simulate" << endl;
+	double currentTime = 0.0;
+	double targetTime = DeltaTime;
+cout << "simulation_world::Simulate DeltaTime: " << DeltaTime << endl;
+	
+	while(currentTime < DeltaTime)
+	{
+cout << "Can confirm, currentTime < DeltaTime" << endl;
+		
+		computeForces(SourceConfigIndex);
+		
+		integrate(targetTime-currentTime);
+		
+		calculateVertices(TargetConfigIndex);
+		
+		checkForCollisions(TargetConfigIndex);
+		if(collisionState == penetrating)
+		{
+			targetTime = (currentTime + targetTime) / 2;
+			
+			assert(fabs(targetTime - currentTime) > epsilon);
+		}
+		else
+		{
+			if(collisionState == colliding)
+			{
+				int counter = 0;
+				do
+				{
+					resolveCollisions(TargetConfigIndex);
+					counter++;
+				}
+				while((checkForCollisions(TargetConfigIndex) == colliding) && (counter < 100));
+				
+				assert(counter < 100);
+			}
+			
+		
+			currentTime = targetTime;
+			targetTime = DeltaTime;
+			
+			SourceConfigIndex = SourceConfigIndex ? 0 : 1;
+			TargetConfigIndex = TargetConfigIndex ? 0 : 1;
+cout << "Swapped config indexes" << endl;
+cout << "Source index: " << SourceConfigIndex << endl;
+cout << "target index: " << TargetConfigIndex << endl;
+cout << "\n\n" << endl;
+		}
+		
+	}
+}
+
+//-----------------------------------------------------------------Simulation loop
+void simLoop(int pause)
+{
+cout << "%/%/%/%/%-Start of new SimLoop-%/%/%/%/%" << endl;
+	assert(WorldObject);
+	//double newTime = time(NULL);
+	//cout << "SimLoop new time value: " << newTime << endl;
+	//double LastTime = programStartTime - newTime;
+	//cout << "SimLoop last time value: " << LastTime << endl;
+	
+	double const MaxTimeStep = 0.01;
+	
+	double Time = mainTIME + MaxTimeStep;
+cout << "SimLoop: Time " << Time << endl;
+	
+	while(mainTIME < Time)
+	{
+		//cout << "can confirm, last time < time" << endl;
+		double DeltaTime = Time - mainTIME;
+		if(DeltaTime > MaxTimeStep)
+		{
+cout << "SimLoop: Can confirm, delta time > max time step" << endl;
+			DeltaTime = MaxTimeStep;
+		}
+		WorldObject->Simulate(DeltaTime);
+		mainTIME += MaxTimeStep;
+	}
+	mainTIME = Time;
+	WorldObject->render();
+	
 }
 
 //-----------------------------------------------------------------Build cube body
@@ -169,7 +528,9 @@ cout << "Body mass: " << Mass << endl;
 		source.oneOverWorldSpaceInertiaTensor.zero();
 		target.oneOverWorldSpaceInertiaTensor.zero();
 		source.angularVelocity.zero();
-		//source.angularVelocity.x = 0.5;
+		source.angularVelocity.x = 0.5;
+		source.angularVelocity.y = 0.3;
+		source.angularVelocity.z = 0.1;
 		target.angularVelocity.zero();
 	
 		Body.oneOverMass = 1.0 / Mass;
@@ -253,355 +614,24 @@ cout << "~~~~~~~~~~~~~~~~~\n\n" << endl;
 	}
 }
 
-//-----------------------------------------------------------------Simulate
-void simulation_world::Simulate(double DeltaTime)
+//-----------------------------------------------------------------Simulation world initialization
+simulation_world::simulation_world(float worldX, float worldY, float worldZ) :SourceConfigIndex(0), TargetConfigIndex(1)
 {
-cout << "Started simulation_world::Simulate" << endl;
-	double currentTime = 0.0;
-	double targetTime = DeltaTime;
-cout << "simulation_world::Simulate DeltaTime: " << DeltaTime << endl;
+	//buildCubeBody(5.0, 0.5, 0.5, 0.5, 1.0); //Initial body with density 5.0, dimensions of 1 on each edge, coefficient of restitution 1.0.
+	Vector placeHolderVector;
 	
-	while(currentTime < DeltaTime)
-	{
-cout << "Can confirm, currentTime < DeltaTime" << endl;
-		
-		computeForces(SourceConfigIndex);
-		
-		integrate(targetTime-currentTime);
-		
-		calculateVertices(TargetConfigIndex);
-		
-		checkForCollisions(TargetConfigIndex);
-		if(collisionState == penetrating)
-		{
-			targetTime = (currentTime + targetTime) / 2;
-			
-			assert(fabs(targetTime - currentTime) > epsilon);
-		}
-		else
-		{
-			if(collisionState == colliding)
-			{
-				int counter = 0;
-				do
-				{
-					resolveCollisions(TargetConfigIndex);
-					counter++;
-				}
-				while((checkForCollisions(TargetConfigIndex) == colliding) && (counter < 100));
-				
-				assert(counter < 100);
-			}
-			
-		
-			currentTime = targetTime;
-			targetTime = DeltaTime;
-			
-			SourceConfigIndex = SourceConfigIndex ? 0 : 1;
-			TargetConfigIndex = TargetConfigIndex ? 0 : 1;
-cout << "Swapped config indexes" << endl;
-cout << "Source index: " << SourceConfigIndex << endl;
-cout << "target index: " << TargetConfigIndex << endl;
-cout << "\n\n" << endl;
-		}
-		
-	}
+	placeHolderVector.x = 0.0;
+	placeHolderVector.y = 0.0;
+	placeHolderVector.z = -1.0;
+	
+	worldPlanes[0].planeNormal = placeHolderVector;
+	worldPlanes[0].d = worldZ/2;
+	
+	calculateVertices(0);
 }
 
-//-----------------------------------------------------------------Check for collisions
-simulation_world::collision_state
-simulation_world::checkForCollisions(int configurationIndex)
+simulation_world::~simulation_world()
 {
-	collisionState = clear;
-	float const DepthEpsilon = 0.001f;
-	
-	for(int BodyIndex = 0; (BodyIndex < numberOfBodies)&&(collisionState != penetrating); BodyIndex++)
-	{
-		rigidBody &Body = BodyList[BodyIndex];
-		rigidBody::configuration &configuration = Body.configState[configurationIndex];
-		
-		for(int unsigned counter = 0; (counter < Body.boundingVertexes) && (collisionState != penetrating); counter++)
-		{
-			Vector position;
-			Vector U;
-			Vector velocity;
-			position = configuration.BodyBoundingVertexes[counter];
-			U = position - configuration.CMposition;
-			
-			velocity = configuration.CMvelocity + configuration.angularVelocity % U; //% is cross product
-			
-			for(int planeIndex = 0; (planeIndex < numberOfWorldPlanes) && (collisionState != penetrating); planeIndex++)
-			{
-				planes &plane = worldPlanes[planeIndex];
-				
-				float axbyczd = dotProduct(position, plane.planeNormal) + plane.d;
-				
-				if(axbyczd < -DepthEpsilon)
-				{
-					collisionState = penetrating;
-					cout << "Body collision state = penetrating" << endl;
-				}
-				else if(axbyczd < DepthEpsilon)
-				{
-					float relativeVelocity = dotProduct(plane.planeNormal, velocity);
-					
-					if(relativeVelocity < 0)
-					{
-						collisionState = colliding;
-						cout << "Body collision state = colliding" << endl;
-						collisionNormal = plane.planeNormal;
-						collidingCornerIndex = counter;
-						collidingBodyIndex = BodyIndex;
-					}
-				}
-			}
-		}
-	}
-	
-	return collisionState;
-}
-
-//-----------------------------------------------------------------Resolve collisions
-void simulation_world::resolveCollisions(int configurationIndex)
-{
-	rigidBody &Body = BodyList[collidingBodyIndex];
-	rigidBody::configuration &configuration = Body.configState[configurationIndex];
-	
-	Vector position;
-	position = configuration.BodyBoundingVertexes[collidingCornerIndex];
-	
-	Vector R;
-	R = position - configuration.CMposition;
-	
-	Vector velocity;
-	velocity = configuration.CMvelocity + (configuration.angularVelocity % R); //Cross product
-	
-	float impulseNumerator = -(1 + Body.coefficientOfRestitution) * dotProduct(velocity, collisionNormal);
-	
-	float impulseDenominator = Body.oneOverMass + dotProduct( ( (configuration.oneOverWorldSpaceInertiaTensor*(R % collisionNormal)) % R ), collisionNormal );
-	
-	Vector impulse;
-	impulse = (impulseNumerator/impulseDenominator) * collisionNormal;
-	
-	
-	configuration.CMvelocity += (Body.oneOverMass * impulse);
-	configuration.angularMomentum += (R % impulse);
-	
-	configuration.angularVelocity = (configuration.oneOverWorldSpaceInertiaTensor * configuration.angularMomentum);
-}
-
-
-//-----------------------------------------------------------------Compute forces
-void simulation_world::computeForces(int configurationIndex)
-{
-cout << "\n~~~~~~~~~~~~~~~~~" << endl;
-cout << "Started compute Forces" << endl;
-
-cout << "configuration index input: " << configurationIndex << endl;
-	int i;
-	
-	for(i = 0; i < numberOfBodies; i++)
-	{
-		rigidBody &Body = BodyList[i];
-		rigidBody::configuration &configuration = Body.configState[configurationIndex];
-		
-		//TEST
-		configuration.torque.zero();
-		configuration.CMforce.zero();
-		
-		//Adding the force that the gravity acceleration imparts on the body
-		//configuration.torque += (gravityAccel / Body.oneOverMass);  //Where did this come from?
-		configuration.CMforce += gravityAccel / Body.oneOverMass;
-cout << "Compute forces linear, angular damping: " << -linearDamping << ", " << -angularDamping << endl;
-cout << "Compute forces CM velocity: " << configuration.CMvelocity << endl;
-cout << "Compute forces angular velocity: " << configuration.angularVelocity << endl;
-		
-		//There's always a little damping force on the body even if there's no defined damping
-		configuration.CMforce += -linearDamping * configuration.CMvelocity;	//Acts in opposite direction to vertical movement.
-
-		configuration.torque += -angularDamping * configuration.angularVelocity; //Acts in every direction of motion.
-		
-cout << "Final compute forces CM force: " << configuration.CMforce << endl;
-cout << "Final compute forces torque: " << configuration.torque << endl;
-	}
-cout << "End compute forces" << endl;
-cout << "~~~~~~~~~~~~~~~~~\n" << endl;
-}
-
-//-----------------------------------------------------------------Integrate
-void simulation_world::integrate(double DeltaTime)
-{
-cout << "\n~~~~~~~~~~~~~~~~~" << endl;
-cout << "Started simulation_world::integrate" << endl;
-	int i;
-
-cout << "integrate:: Delta time : " << DeltaTime << endl;
-
-	for(i = 0; i < numberOfBodies; i++)
-	{
-cout << "\n~~~Body " << i << endl;
-		rigidBody::configuration &source = BodyList[i].configState[SourceConfigIndex];
-		rigidBody::configuration &target = BodyList[i].configState[TargetConfigIndex];
-		
-cout << "~~~Source, Target configuration indexes: " << SourceConfigIndex << "," << TargetConfigIndex << endl;
-		
-		//Integrating to get the CM position from the initial position.
-cout << "\n~~~Start target CM position" << endl;
-cout << "Source CM vel: " << source.CMvelocity << endl;
-cout << "Source CM position: " << source.CMposition << endl;
-
-		target.CMposition = source.CMposition + DeltaTime*source.CMvelocity;
-		
-cout << "Target CM position: " << target.CMposition << endl;
-		
-		//Velocity
-cout << "\n~~~Start target velocity" << endl;
-cout << "Source CM vel: " << source.CMvelocity << endl;
-cout << "Delta time: " << DeltaTime << endl;
-cout << "BodyList[i].oneOverMass" << BodyList[i].oneOverMass << endl;
-cout << "Source CM force: " << source.CMforce << endl;
-
-		target.CMvelocity = source.CMvelocity + (DeltaTime * BodyList[i].oneOverMass) * source.CMforce;
-		
-cout << "Target CM velocity: " << target.CMvelocity << endl;
-
-		//Integrating to get the Orientation of the body
-		//target.orientation = source.orientation + tildaMultiply(source.angularVelocity, source.CMposition);
-cout << "\n~~~Start target orientation" << endl;
-cout << "Source orientation: " << source.orientation << endl;
-cout << "Source angularVelocity: " << source.angularVelocity << endl;
-
-		Matrix skewSymmetricAngVel;		
-		skewSymmetricAngVel = skewSymmetric(source.angularVelocity);
-		target.orientation = DeltaTime * (skewSymmetricAngVel * source.orientation);
-		
-		//target.orientation = DeltaTime * tildaMultiply(source.angularVelocity, source.orientation); //This isn't correct - actually Ben, it appears that it is.
-		
-cout << "Target orientation: " << target.orientation << endl;
-		
-		//Angular momentum
-cout << "\n~~~Start target angularMomentum" << endl;
-cout << "Source angular momentum: " << source.angularMomentum << endl;
-cout << "Delta time: " << DeltaTime << endl;
-cout << "Source torque: " << source.torque << endl;
-
-		target.angularMomentum = source.angularMomentum + DeltaTime * source.torque;
-		
-cout << "Target angular momentum: " << target.angularMomentum << endl;
-
-		//Reorthogonalize to remove weird bits
-		/*
-		int reorthogonalizationRotor = 2;
-		int &reorthRef = reorthogonalizationRotor;
-		*/
-		cout << "Target orientation: " << target.orientation << endl;
-		
-		/*
-		for(int i = 0; i<=6; i++)
-		{
-			target.orientation.reorthogonalize(BodyList[i].reorthRef);
-		}
-		*/
-		
-		//target.orientation.reorthogonalize(BodyList[i].reorthRef);
-cout << "\n~~~Reorthogonalized orientation: " << target.orientation << endl;
-		
-		//inertia tensor
-cout << "\n~~~Start inverse world space inertia tensor" << endl;
-cout << "Inverse body space IT: " << BodyList[i].oneOverBodySpaceInertiaTensor << endl;
-
-		target.oneOverWorldSpaceInertiaTensor = target.orientation * BodyList[i].oneOverBodySpaceInertiaTensor * transpose(target.orientation);
-		
-cout << "Target inverse world space IT: " << target.oneOverWorldSpaceInertiaTensor << endl;
-		
-		//angular velocity
-cout << "\n~~~Start angular velocity" << endl;
-cout << "target inverse world space IT: " << target.oneOverWorldSpaceInertiaTensor << endl;
-cout << "target angular momentum: " << target.angularMomentum << endl;
-
-		target.angularVelocity = target.oneOverWorldSpaceInertiaTensor * target.angularMomentum;
-		
-cout << "Target angular velocity: " << target.angularVelocity << endl;
-	}
-cout << "End integrate" << endl;
-cout << "~~~~~~~~~~~~~~~~~\n\n" << endl;
-}
-
-
-//-----------------------------------------------------------------Calculate vertices
-void simulation_world::calculateVertices(int configurationIndex)
-{
-	for(int counter = 0; counter < numberOfBodies; counter++)
-	{
-		rigidBody &Body = BodyList[counter];
-		rigidBody::configuration &configuration = Body.configState[configurationIndex];
-		
-		Matrix const &orient = configuration.orientation;
-cout << "Calculate vertices:: orient:\n" << orient << endl;
-		Vector const &posit = configuration.CMposition;
-cout << "Calculate vertices:: posit:\n" << posit << endl;
-		
-		assert(Body.boundingVertexes < Body.maxBoundingVertexes);
-		for(int unsigned i = 0; i < Body.boundingVertexes; i++)
-		{
-cout << "Calculate vertices:: Before Body bounding vertexes: " << configuration.BodyBoundingVertexes[i] << endl;
-			configuration.BodyBoundingVertexes[i] = posit + orient * Body.BodyBoundingVertexes[i];
-cout << "Calculate vertices:: After Body bounding vertexes:" << configuration.BodyBoundingVertexes[i] << endl; 
-		}
-	}
-}
-
-//-----------------------------------------------------------------render
-void simulation_world::render()
-{
-	//Test Render
-	for(int counter = 0; counter < numberOfBodies; counter++)
-	{
-		rigidBody &Body = BodyList[counter];
-		
-		getPosRotSides(Body);
-		
-		dsDrawBox(bodyPos, bodyRot, bodySides);
-	}
-	
-	/*//TEST DRAW OF A BOX
-	float sidesTest[3] = {1.0, 1.0, 1.0};
-	float rotTest[12] = {1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0};
-	float posTest[3] = {1.0, 0.0, 0.0};
-	
-	dsDrawBox(posTest, rotTest, sidesTest);
-	*/
-}
-
-//-----------------------------------------------------------------Simulation loop
-void simLoop(int pause)
-{
-cout << "%/%/%/%/%-Start of new SimLoop-%/%/%/%/%" << endl;
-	assert(WorldObject);
-	//double newTime = time(NULL);
-	//cout << "SimLoop new time value: " << newTime << endl;
-	//double LastTime = programStartTime - newTime;
-	//cout << "SimLoop last time value: " << LastTime << endl;
-	
-	double const MaxTimeStep = 0.01;
-	
-	double Time = mainTIME + MaxTimeStep;
-cout << "SimLoop: Time " << Time << endl;
-	
-	while(mainTIME < Time)
-	{
-		//cout << "can confirm, last time < time" << endl;
-		double DeltaTime = Time - mainTIME;
-		if(DeltaTime > MaxTimeStep)
-		{
-cout << "SimLoop: Can confirm, delta time > max time step" << endl;
-			DeltaTime = MaxTimeStep;
-		}
-		WorldObject->Simulate(DeltaTime);
-		mainTIME += MaxTimeStep;
-	}
-	mainTIME = Time;
-	WorldObject->render();
 }
 
 //-----------------------------------------------------------------Drawstuff initialization
@@ -617,7 +647,7 @@ static void start()
 	WorldObject = new simulation_world(100.0, 100.0, 100.0);
 	
 	float cubeSizeTest[3] = {0.5, 0.5, 0.5};
-	float cubePosTest[3] = {0.0, 0.0, 15.0};
+	float cubePosTest[3] = {0.0, 0.0, 2.0};
 	
 	WorldObject->buildCubeBody(10.0, cubeSizeTest, cubePosTest, 1.0);
 }
