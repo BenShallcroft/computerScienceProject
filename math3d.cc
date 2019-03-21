@@ -195,7 +195,23 @@ extern_inline void Matrix::reorthogonalize(int& reorthogonalizeRotor)
   if (reorthogonalizeRotor<3) { m00=x.x; m10=x.y; m20=x.z;   m01=y.x; m11=y.y; m21=y.z;   m02=z.x; m12=z.y; m22=z.z; } // by column
   else                        { m00=x.x; m01=x.y; m02=x.z;   m10=y.x; m11=y.y; m12=y.z;   m20=z.x; m21=z.y; m22=z.z; } // by row
 
-  reorthogonalizeRotor++; if (reorthogonalizeRotor==6) reorthogonalizeRotor=0;
+  //reorthogonalizeRotor++; if (reorthogonalizeRotor==6) reorthogonalizeRotor=0;
+}
+
+//Added by Ben Shallcroft
+extern_inline void Matrix::reorthogonalize()
+{
+	Vector X, Y, Z;
+	X.x = m00; X.y = m10; X.z = m20;
+	Y.x = m01; Y.y = m11; Y.z = m21;
+	
+	X.normalize();
+	Z = (X%Y); Z.normalize();
+	Y = (Z%X); Y.normalize();
+	
+	m00 = X.x; m01 = Y.x; m02 = Z.x;
+	m10 = X.y; m11 = Y.y; m12 = Z.y;
+	m20 = X.z; m21 = Y.z; m22 = Z.z;
 }
 
 extern_inline Matrix transpose(const Matrix& M)
