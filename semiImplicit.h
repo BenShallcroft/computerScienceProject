@@ -16,7 +16,7 @@ struct rigidBody
 	
 	//Size of the boxes. Defined by the number of bounding vertexes - 8 for a box.
 	int unsigned boundingVertexes;
-	enum{maxBoundingVertexes = 20};
+	enum{maxBoundingVertexes = 8};
 	Vector BodyBoundingVertexes[maxBoundingVertexes];
 	
 	int reorthogonalizationRotor = 3;
@@ -53,7 +53,7 @@ class simulation_world
 		//Collision part
 		enum collision_state
 		{
-			penetrating, colliding, clear //If bodies are inside each other, just colliding, or not colliding at all
+			penetrating, clear, colliding //If bodies are inside each other, just colliding, or not colliding at all
 		} collisionState;
 		
 		Vector collisionNormal;
