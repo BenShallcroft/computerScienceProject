@@ -1,6 +1,10 @@
 #include <drawstuff/drawstuff.h>
 #include <string>
 #include <iostream>
+#include <fstream>
+#include <vector>
+#include <sstream>
+#include <iterator>
 #include <assert.h>
 
 #include "math3d.h"
@@ -15,6 +19,10 @@ double mainTIME;
 
 float const epsilon = 0.00001f;
 
+//Next two are for the loading of the cube positions file for the 100 cubes to be spawned
+string lineData[100];
+int positionArray[100][3];
+
 float bodyPos[3]; //For Drawstuff
 float bodyRot[12]; //For Drawstuff
 float bodySides[3]; //For Drawstuff
@@ -24,6 +32,58 @@ float const linearDamping = 0.002f;
 float const angularDamping = 0.001f;
 
 Vector gravityAccel;
+
+//-----------------------------------------------------------------Load position file functions
+void openFile(const char *filename)
+{
+	ifstream file(filename);
+	string str;
+	
+	int lineCounter = 0;
+	while(getline(file, str))
+	{
+		lineData[lineCounter] = str;
+		lineCounter++;
+	}
+	
+	for(int i= 0; i < 100; i++)
+	{
+		//cout << "LINE " << i+1 << ": " << lineData[i] << endl;
+	}
+	
+	ifstream close();
+}
+
+void positionFileToPositions(string dataArray[])
+{
+	
+	for(int i=0; i < 100; i++)
+	{
+	
+		string str = lineData[i];
+		istringstream buf(str);
+		istream_iterator<string> beg(buf), end;
+		
+		vector<string> tokens(beg, end);
+		
+		//cout << "LINE " << i+1 << ": " << tokens[0] << "," << tokens[1] << "," << tokens[2] << endl;
+		int xValue = stoi(tokens[0]);
+		int yValue = stoi(tokens[1]);
+		int zValue = stoi(tokens[2]);
+		//cout << "LINE " << i+1 << ": " << xValue << "," << yValue << "," << zValue << endl;
+		/*
+		xPosArray[i] = xValue;
+		yPosArray[i] = yValue;
+		zPosArray[i] = zValue;
+		*/
+		
+		positionArray[i][0] = xValue;
+		positionArray[i][1] = yValue;
+		positionArray[i][2] = zValue;
+		
+		cout << "LINE " << i+1 << ": " << positionArray[i][0] << "," << positionArray[i][1] << "," << positionArray[i][2] << endl;
+	}
+}
 
 //-----------------------------------------------------------------Get pos rot sides function
 void getPosRotSides(rigidBody &Body)
@@ -111,7 +171,7 @@ cout << "Collision state start: " << collisionState << endl;
 		for(int unsigned counter = 0; (counter < Body.boundingVertexes) && (collisionState != penetrating); counter++)
 		{
 cout << "~~~~~~~" << endl;
-cout << "collisionState != penetrating" << endl;
+cout << "Check collisions" << endl;
 			Vector position;
 			Vector U;
 			Vector velocity;
@@ -121,6 +181,7 @@ cout << "Vertex position: " << position << endl;
 cout << "Body CM position: " << configuration.CMposition << endl;
 cout << "U = position - CM position: " << U << endl;
 			
+cout << "angular velocity: " << configuration.angularVelocity << endl;
 			velocity = configuration.CMvelocity + (configuration.angularVelocity % U); //% is cross product
 cout << "Velocity: " << velocity << endl;
 			
@@ -134,8 +195,8 @@ cout << "axbyczd (pos DOT planeNormal + plane.d): " << axbyczd << endl;
 				if(axbyczd < -DepthEpsilon)
 				{
 cout << "axbyczd < - depth epsilon" << endl;
+cout << "Body collision state = penetrating" << endl;
 					collisionState = penetrating;
-					cout << "Body collision state = penetrating" << endl;
 				}
 				else if(axbyczd < DepthEpsilon)
 				{
@@ -144,8 +205,8 @@ cout << "axbyczd < - depth epsilon" << endl;
 					
 					if(relativeVelocity < 0)
 					{
+cout << "Body collision state = colliding" << endl;
 						collisionState = colliding;
-						cout << "Body collision state = colliding" << endl;
 						collisionNormal = plane.planeNormal;
 						collidingCornerIndex = counter;
 cout << "Colliding corner index: " << collidingCornerIndex << endl;
@@ -172,7 +233,7 @@ cout << "Colliding corner index: " << collidingCornerIndex << endl;
 	
 	Vector position;
 	position = configuration.BodyBoundingVertexes[collidingCornerIndex];
-cout << "Colliding corner index: " << position << endl;
+cout << "Colliding corner position " << position << endl;
 	
 	Vector R;
 	R = position - configuration.CMposition;
@@ -183,10 +244,10 @@ cout << "R - distance to colliding corner from CM position: " << R << endl;
 cout << "Velocity: " << velocity << endl;
 	
 	//removed a negative from the start of the next line
-	float impulseNumerator = (1 + Body.coefficientOfRestitution) * dotProduct(velocity, collisionNormal);
+	float impulseNumerator = -(1 + Body.coefficientOfRestitution) * dotProduct(velocity, collisionNormal);
 cout << "Impulse numerator: " << impulseNumerator << endl;
 	
-	float impulseDenominator = Body.oneOverMass + dotProduct( ( (configuration.oneOverWorldSpaceInertiaTensor*(R % collisionNormal)) % R ), collisionNormal );
+	float impulseDenominator = Body.oneOverMass + dotProduct( ( (configuration.oneOverWorldSpaceInertiaTensor*(R % collisionNormal) ) % R ), collisionNormal );
 cout << "Impulse denominator: " << impulseDenominator << endl;
 	
 	Vector impulse;
@@ -238,7 +299,7 @@ cout << "Calculate vertices:: orient:\n" << orient << endl;
 		Vector const &posit = configuration.CMposition;
 cout << "Calculate vertices:: posit:\n" << posit << endl;
 		
-		assert(Body.boundingVertexes < Body.maxBoundingVertexes);
+		assert(Body.boundingVertexes <= Body.maxBoundingVertexes);
 		for(int unsigned i = 0; i < Body.boundingVertexes; i++)
 		{
 cout << "Calculate vertices:: Before Body bounding vertexes: " << configuration.BodyBoundingVertexes[i] << endl;
@@ -393,6 +454,7 @@ void simulation_world::Simulate(double DeltaTime)
 cout << "Started simulation_world::Simulate" << endl;
 	double currentTime = 0.0;
 	double targetTime = DeltaTime;
+cout << "Target time: " << targetTime << endl;
 cout << "simulation_world::Simulate DeltaTime: " << DeltaTime << endl;
 	
 	while(currentTime < DeltaTime)
@@ -401,15 +463,19 @@ cout << "Can confirm, currentTime < DeltaTime" << endl;
 		
 		computeForces(SourceConfigIndex);
 		
-		integrate(targetTime-currentTime);
+		integrate(targetTime - currentTime);
 		
 		calculateVertices(TargetConfigIndex);
 		
 		checkForCollisions(TargetConfigIndex);
+		
 		if(collisionState == penetrating)
 		{
+cout << "collision state = penetrating" << endl;
+cout << "Target time: " << targetTime << endl;
 			targetTime = (currentTime + targetTime) / 2;
-			
+cout << "Target time: " << targetTime << endl;
+			//If next bit trips, interpenetration at start frame
 			assert(fabs(targetTime - currentTime) > epsilon);
 		}
 		else
@@ -528,7 +594,7 @@ cout << "Body mass: " << Mass << endl;
 		source.oneOverWorldSpaceInertiaTensor.zero();
 		target.oneOverWorldSpaceInertiaTensor.zero();
 		source.angularVelocity.zero();
-		source.angularVelocity.x = 0.5;
+		source.angularVelocity.x = 1.0;
 		source.angularVelocity.y = 0.3;
 		source.angularVelocity.z = 0.1;
 		target.angularVelocity.zero();
@@ -560,7 +626,7 @@ cout << "Inverse body space inertia tensor: " << Body.oneOverBodySpaceInertiaTen
 	
 	//YUCK - unquestionably the worst code I have ever written.
 	//Setting up the bounding vertexes of the boxes.
-		assert(Body.maxBoundingVertexes > 8);
+		assert(Body.maxBoundingVertexes >= 8);
 		
 		Body.boundingVertexes = 8;
 	
@@ -618,14 +684,20 @@ cout << "~~~~~~~~~~~~~~~~~\n\n" << endl;
 simulation_world::simulation_world(float worldX, float worldY, float worldZ) :SourceConfigIndex(0), TargetConfigIndex(1)
 {
 	//buildCubeBody(5.0, 0.5, 0.5, 0.5, 1.0); //Initial body with density 5.0, dimensions of 1 on each edge, coefficient of restitution 1.0.
+	float cubeSizeTest[3] = {0.5, 0.5, 0.5};
+	float cubePosTest[3] = {0.0, 0.0, 0.7};	
+	
+	buildCubeBody(10.0, cubeSizeTest, cubePosTest, 1.0);
+	
 	Vector placeHolderVector;
 	
 	placeHolderVector.x = 0.0;
 	placeHolderVector.y = 0.0;
-	placeHolderVector.z = -1.0;
+	placeHolderVector.z = 1.0;
+	
 	
 	worldPlanes[0].planeNormal = placeHolderVector;
-	worldPlanes[0].d = worldZ/2;
+	worldPlanes[0].d = 0.0;
 	
 	calculateVertices(0);
 }
@@ -644,19 +716,19 @@ static void start()
 	printf("Simulation start \n");
 	
 	gravityAccel.z = -9.81;
-	WorldObject = new simulation_world(100.0, 100.0, 100.0);
+	WorldObject = new simulation_world(8.0,8.0,8.0);
 	
-	float cubeSizeTest[3] = {0.5, 0.5, 0.5};
-	float cubePosTest[3] = {0.0, 0.0, 2.0};
 	
-	WorldObject->buildCubeBody(10.0, cubeSizeTest, cubePosTest, 1.0);
 }
 //-----------------------------------------------------------------
 
 //-----------------------------------------------------------------
 //Main
 int main(int argc, char**argv)
-{
+{	
+	openFile("cubePositions.txt");
+	positionFileToPositions(lineData);
+	
 	//Timer start initial call
 	mainTIME = 0.0;
 	cout << "Program start time: " << mainTIME << endl;
@@ -671,7 +743,7 @@ int main(int argc, char**argv)
 	fn.stop = 0;
 	fn.path_to_textures = "textures";
 	
-	dsSimulationLoop(argc, argv, 1000, 1000, &fn);
+	dsSimulationLoop(argc, argv, 500, 500, &fn);
 	
 }	
 //-----------------------------------------------------------------
