@@ -325,6 +325,19 @@ extern_inline Matrix skewSymmetric(const Vector& v)
 	return rM;
 }
 
+//Added by Ben Shallcroft
+extern_inline bool Matrix::isZero() 
+{ 
+	//m00=m01=m02=m10=m11=m12=m20=m21=m22=0; 
+	if((m00==0.0) && (m01==0.0) && (m02==0.0) && (m10==0.0) && (m11==0.0) && (m12==0.0) && (m20==0.0) && (m21==0.0) && (m22==0.0))
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
 
 // convenience functions -----------------------------------------------------------------------------------------------------------
 
