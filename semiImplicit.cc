@@ -1,3 +1,6 @@
+//#include "math3d.h"
+#include "semiImplicit.h"
+
 #include <drawstuff/drawstuff.h>
 #include <string>
 #include <iostream>
@@ -6,9 +9,6 @@
 #include <sstream>
 #include <iterator>
 #include <assert.h>
-
-#include "math3d.h"
-#include "semiImplicit.h"
 
 using namespace std;
 //-----------------------------------------------------------------Global variables
@@ -81,7 +81,7 @@ void positionFileToPositions(string dataArray[])
 		positionArray[i][1] = yValue;
 		positionArray[i][2] = zValue;
 		
-		cout << "LINE " << i+1 << ": " << positionArray[i][0] << "," << positionArray[i][1] << "," << positionArray[i][2] << endl;
+		//cout << "LINE " << i+1 << ": " << positionArray[i][0] << "," << positionArray[i][1] << "," << positionArray[i][2] << endl;
 	}
 }
 
@@ -94,25 +94,9 @@ void getPosRotSides(rigidBody &Body)
 	bodyPos[2] = Body.configState[0].CMposition.z;
 	//cout << "Body pos x,y,z: " << bodyPos[0] << ", " << bodyPos[1] << ", " << bodyPos[2] << endl;
 	
-	bodySides[0] = Body.width;
-	bodySides[1] = Body.height;
-	bodySides[2] = Body.length;
-	
-	/*
-	bodyRot[0] = Body.BodyBoundingVertexes[0];
-	bodyRot[1] = Body.BodyBoundingVertexes[1];
-	bodyRot[2] = Body.BodyBoundingVertexes[2];
-	bodyRot[3] = 0.0;
-	bodyRot[4] = Body.BodyBoundingVertexes[3];
-	bodyRot[5] = Body.BodyBoundingVertexes[4];
-	bodyRot[6] = Body.BodyBoundingVertexes[5];
-	bodyRot[7] = 0.0;
-	bodyRot[8] = Body.BodyBoundingVertexes[6];
-	bodyRot[9] = Body.BodyBoundingVertexes[7];
-	bodyRot[10] = Body.BodyBoundingVertexes[8];
-	bodyRot[11] = 0.0;
-	*/
-	
+	bodySides[0] = Body.width*2;
+	bodySides[1] = Body.height*2;
+	bodySides[2] = Body.length*2;
 	
 	bodyRot[0] = Body.configState[0].orientation.m00;
 	bodyRot[1] = Body.configState[0].orientation.m01;
@@ -126,31 +110,14 @@ void getPosRotSides(rigidBody &Body)
 	bodyRot[9] = Body.configState[0].orientation.m21;
 	bodyRot[10] = Body.configState[0].orientation.m22;
 	bodyRot[11] = 0.0;
-	cout << "Get pos rot sides function - bodyRot: ";
-for(int i = 0; i < 12; i++)
-{
-	cout << bodyRot[i];
-	cout << ", ";
-}
-cout << endl;
-//cout << "bodyRot[10] from getPosRotSides method: " << bodyRot[10] << endl;
-	
-	
 	/*
-	bodyRot[0] = 1.0;
-	bodyRot[1] = 0.0;
-	bodyRot[2] = 0.0;
-	bodyRot[3] = 0.0;
-	
-	bodyRot[4] = 0.0;
-	bodyRot[5] = 1.0;
-	bodyRot[6] = 0.0;
-	bodyRot[7] = 0.0;
-	
-	bodyRot[8] = 0.0;
-	bodyRot[9] = 0.0;
-	bodyRot[10] = 1.0;
-	bodyRot[11] = 0.0;
+	cout << "Get pos rot sides function - bodyRot: ";
+	for(int i = 0; i < 12; i++)
+	{
+		cout << bodyRot[i];
+		cout << ", ";
+	}
+	cout << endl;
 	*/
 }
 
@@ -161,17 +128,25 @@ simulation_world::checkForCollisions(int configurationIndex)
 	cout << "Start check for collisions function" << endl;
 	collisionState = clear;
 	cout << "Collision state start: " << collisionState << endl;
-	float const DepthEpsilon = 0.1f;
+	float const DepthEpsilon = 0.001f;
+	
+	cout << "Number of bodies: " << numberOfBodies << endl;
+	
+	//Wide angle check
+	//cube check
+	//floor check
 	
 	for(int BodyIndex = 0; (BodyIndex < numberOfBodies)&&(collisionState != penetrating); BodyIndex++)
 	{
 		rigidBody &Body = BodyList[BodyIndex];
 		rigidBody::configuration &configuration = Body.configState[configurationIndex];
 		
+		cout << "Body bounding vertexes: " << Body.boundingVertexes << endl;
 		for(int unsigned counter = 0; (counter < Body.boundingVertexes) && (collisionState != penetrating); counter++)
 		{
 			cout << "~~~~~~~" << endl;
-			cout << "Check collisions" << endl;
+			cout << "Check collisions " << counter << endl;
+			cout << "Collision state: " << collisionState << endl;
 			Vector position;
 			Vector U;
 			Vector velocity;
@@ -185,11 +160,20 @@ simulation_world::checkForCollisions(int configurationIndex)
 			velocity = configuration.CMvelocity + (configuration.angularVelocity % U); //% is cross product
 			cout << "Velocity: " << velocity << endl;
 			
-			for(int planeIndex = 0; (planeIndex < numberOfWorldPlanes) && (collisionState != penetrating); planeIndex++)
+			cout << "Number of world planes: " << numberOfFloorPlanes << endl;
+			
+			
+			for(int planeIndex = 0; (planeIndex < numberOfFloorPlanes) && (collisionState != penetrating); planeIndex++)
 			{
-				planes &plane = worldPlanes[planeIndex];
 				
-				float axbyczd = dotProduct(position, plane.planeNormal) + plane.d;
+				//planes &plane = worldPlanes[planeIndex];
+				floorPlane &Floor = floorList[planeIndex];
+				cout << "Floor plane created" << endl;
+				
+				cout << "Position: " << position << endl;
+				cout << "Floor plane normal: " << Floor.planeNormal << endl;
+				cout << "Floor d: " << Floor.d << endl;
+				float axbyczd = dotProduct(position, Floor.planeNormal) + Floor.d;
 				cout << "axbyczd (pos DOT planeNormal + plane.d): " << axbyczd << endl;
 				
 				if(axbyczd < -DepthEpsilon)
@@ -201,13 +185,16 @@ simulation_world::checkForCollisions(int configurationIndex)
 				else if(axbyczd < DepthEpsilon)
 				{
 					cout << "axbyczd < - depth epsilon" << endl;
-					float relativeVelocity = dotProduct(plane.planeNormal, velocity);
+					//float relativeVelocity = dotProduct(plane.planeNormal, velocity);
+					float relativeVelocity = dotProduct(Floor.planeNormal, velocity);
 					
 					if(relativeVelocity < 0)
 					{
-						cout << "\n\n\nBODY COLLISION STATE = COLLIDING\n\n\n" << endl;
+						
+						cout << "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nBODY COLLISION STATE = COLLIDING\n\n\n\n\n\n\n\n" << endl;
 						collisionState = colliding;
-						collisionNormal = plane.planeNormal;
+						//collisionNormal = plane.planeNormal;
+						collisionNormal = Floor.planeNormal;
 						collidingCornerIndex = counter;
 						cout << "Colliding corner index: " << collidingCornerIndex << endl;
 						collidingBodyIndex = BodyIndex;
@@ -224,44 +211,99 @@ simulation_world::checkForCollisions(int configurationIndex)
 //-----------------------------------------------------------------Resolve collisions
 void simulation_world::resolveCollisions(int configurationIndex)
 {
-	cout << "~~~Start resolve configuration index~~~" << endl;
+	//For floor plane/
+	cout << "~~~Start resolve collisions~~~" << endl;
 	cout << "Colliding body index: " << collidingBodyIndex << endl;
 	cout << "Colliding corner index: " << collidingCornerIndex << endl;
 
 	rigidBody &Body = BodyList[collidingBodyIndex];
 	rigidBody::configuration &configuration = Body.configState[configurationIndex];
 	
-	Vector position;
-	position = configuration.BodyBoundingVertexes[collidingCornerIndex];
-	cout << "Colliding corner position " << position << endl;
+	floorPlane &Floor = floorList[0]; //This needs to be changed in case more floor planes for some reason.
 	
-	Vector R;
-	R = position - configuration.CMposition;
-	cout << "R - distance to colliding corner from CM position: " << R << endl;
+	//Body Stuff
+	Vector positionBody;
+	positionBody = configuration.BodyBoundingVertexes[collidingCornerIndex];
+	cout << "Colliding corner position body: " << positionBody << endl;
 	
-	Vector velocity;
-	velocity = configuration.CMvelocity + (configuration.angularVelocity % R); //Cross product
-	cout << "Velocity: " << velocity << endl;
+	Vector RBody;
+	RBody = positionBody - configuration.CMposition;
+	cout << "R - distance to colliding corner from CM position: " << RBody << endl;
 	
-	//removed a negative from the start of the next line
-	float impulseNumerator = -(1 + Body.coefficientOfRestitution) * dotProduct(velocity, collisionNormal);
+	Vector velocityBody;
+	velocityBody = configuration.CMvelocity + (configuration.angularVelocity % RBody); //Cross product
+	cout << "Velocity: " << velocityBody << endl;
+	
+	//Floor stuff
+	Vector positionFloor;
+	positionFloor.zero();
+	
+	Vector RFloor;
+	RFloor.zero();
+	
+	Vector velocityFloor;
+	velocityFloor.zero();
+	
+	cout << "----------------" << endl;
+	cout << "Collision normal: " << collisionNormal << endl;
+	cout << "Coefficient of restitiution: " << Body.coefficientOfRestitution << endl;
+	cout << "----------------" << endl;
+	
+	//Collision response
+	//CH v1
+	//float impulseNumerator = -(1 + Body.coefficientOfRestitution) * dotProduct(velocityBody, collisionNormal);
+	
+	//CH v2
+	float impulseNumerator = dotProduct(collisionNormal, ((1 + Body.coefficientOfRestitution) * velocityBody));
 	cout << "Impulse numerator: " << impulseNumerator << endl;
 	
-	float impulseDenominator = Body.oneOverMass + dotProduct( ( (configuration.oneOverWorldSpaceInertiaTensor*(R % collisionNormal) ) % R ), collisionNormal );
-	cout << "Impulse denominator: " << impulseDenominator << endl;
+	/*
+	//No dot combine
+	float combineInverseMass = Floor.oneOverMass + Body.oneOverMass;
+	//cout << "Combine inverse mass: " << combineInverseMass << endl;
 	
+	//Dot combine
+	float dotCombineInverseMass = dotProduct(collisionNormal, (collisionNormal * combineInverseMass));
+	cout << "Combine inverse mass: " << dotCombineInverseMass << endl;
+	
+	
+	float otherDenomStuff = dotProduct(((Floor.oneOverWorldSpaceInertiaTensor*(positionFloor % (positionFloor % collisionNormal))+(configuration.oneOverWorldSpaceInertiaTensor*(positionBody % (positionBody % collisionNormal))))),collisionNormal);
+	*/
+	
+	float impulseDenominator = Body.oneOverMass + dotProduct( ( (configuration.oneOverWorldSpaceInertiaTensor*(RBody % collisionNormal) ) % RBody ), collisionNormal );
+	//cout << "Impulse denominator: " << impulseDenominator << endl;
+	
+	
+	//cout << "Other denom stuff: " << otherDenomStuff << endl;
+	
+	//No dot combine
+	//float impulseDenominator = combineInverseMass + otherDenomStuff;
+	//Dot combine
+	//float impulseDenominator = dotCombineInverseMass + otherDenomStuff;
+	cout << "Impulse denominator" << impulseDenominator << endl;
 	Vector impulse;
 	impulse = (impulseNumerator/impulseDenominator) * collisionNormal;
 	cout << "Impulse: " << impulse << endl;
 	
 	
-	configuration.CMvelocity += (Body.oneOverMass * impulse);
+	/*
+	float impulseNumerator = (1 + Body.coefficientOfRestitution) * dotProduct(velocity, collisionNormal);
+	
+	float impulseDenominator = Body.oneOverMass + dotProduct((configuration.oneOverWorldSpaceInertiaTensor*(multiplyElements(R,collisionNormal))*R), collisionNormal);
+	
+	Vector impulse;
+	impulse = (impulseNumerator/impulseDenominator) * collisionNormal;
+	*/
+	
+	
+	configuration.CMvelocity = configuration.CMvelocity - (Body.oneOverMass * impulse);
 	cout << "CM velocity: " << configuration.CMvelocity << endl;
-	configuration.angularMomentum += (R % impulse);
+	configuration.angularMomentum += (RBody % impulse);
 	cout << "Body angular momenutm: " << configuration.angularMomentum << endl;
 	
 	configuration.angularVelocity = (configuration.oneOverWorldSpaceInertiaTensor * configuration.angularMomentum);
 	cout << "Body angular velocity: " << configuration.angularVelocity << endl;
+	
 }
 
 //-----------------------------------------------------------------render
@@ -280,7 +322,7 @@ void simulation_world::render()
 	/*//TEST DRAW OF A BOX
 	float sidesTest[3] = {1.0, 1.0, 1.0};
 	float rotTest[12] = {1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0};
-	float posTest[3] = {1.0, 0.0, 0.0};
+	float posTest[3] = {0.0, 0.0, 1.0};
 	
 	dsDrawBox(posTest, rotTest, sidesTest);
 	*/
@@ -302,9 +344,9 @@ void simulation_world::calculateVertices(int configurationIndex)
 		assert(Body.boundingVertexes <= Body.maxBoundingVertexes);
 		for(int unsigned i = 0; i < Body.boundingVertexes; i++)
 		{
-			cout << "Calculate vertices:: Before Body bounding vertexes: " << configuration.BodyBoundingVertexes[i] << endl;
+			//cout << "Calculate vertices:: Before Body bounding vertexes: " << configuration.BodyBoundingVertexes[i] << endl;
 			configuration.BodyBoundingVertexes[i] = posit + orient * Body.BodyBoundingVertexes[i];
-			cout << "Calculate vertices:: After Body bounding vertexes:" << configuration.BodyBoundingVertexes[i] << endl; 
+			//cout << "Calculate vertices:: After Body bounding vertexes:" << configuration.BodyBoundingVertexes[i] << endl; 
 		}
 	}
 }
@@ -324,23 +366,23 @@ void simulation_world::integrate(double DeltaTime)
 		rigidBody::configuration &source = BodyList[i].configState[SourceConfigIndex];
 		rigidBody::configuration &target = BodyList[i].configState[TargetConfigIndex];
 		
-		cout << "~~~Source, Target configuration indexes: " << SourceConfigIndex << "," << TargetConfigIndex << endl;
+		//cout << "~~~Source, Target configuration indexes: " << SourceConfigIndex << "," << TargetConfigIndex << endl;
 		
 		//Integrating to get the CM position from the initial position.
-		cout << "\n~~~Start target CM position" << endl;
-		cout << "Source CM vel: " << source.CMvelocity << endl;
-		cout << "Source CM position: " << source.CMposition << endl;
+		//cout << "\n~~~Start target CM position" << endl;
+		//cout << "Source CM vel: " << source.CMvelocity << endl;
+		//cout << "Source CM position: " << source.CMposition << endl;
 
 		target.CMposition = source.CMposition + DeltaTime*source.CMvelocity;
 		
 		cout << "Target CM position: " << target.CMposition << endl;
 		
 		//Velocity
-		cout << "\n~~~Start target velocity" << endl;
-		cout << "Source CM vel: " << source.CMvelocity << endl;
-		cout << "Delta time: " << DeltaTime << endl;
-		cout << "BodyList[i].oneOverMass" << BodyList[i].oneOverMass << endl;
-		cout << "Source CM force: " << source.CMforce << endl;
+		//cout << "\n~~~Start target velocity" << endl;
+		//cout << "Source CM vel: " << source.CMvelocity << endl;
+		//cout << "Delta time: " << DeltaTime << endl;
+		//cout << "BodyList[i].oneOverMass" << BodyList[i].oneOverMass << endl;
+		//cout << "Source CM force: " << source.CMforce << endl;
 
 		target.CMvelocity = source.CMvelocity + (DeltaTime * BodyList[i].oneOverMass) * source.CMforce;
 		
@@ -348,35 +390,47 @@ void simulation_world::integrate(double DeltaTime)
 
 		//Integrating to get the Orientation of the body
 		//target.orientation = source.orientation + tildaMultiply(source.angularVelocity, source.CMposition);
-		cout << "\n~~~Start target orientation" << endl;
-		cout << "Source orientation: " << source.orientation << endl;
-		cout << "Source angularVelocity: " << source.angularVelocity << endl;
+		//cout << "\n~~~Start target orientation" << endl;
+		//cout << "Source orientation: " << source.orientation << endl;
+		//cout << "Source angularVelocity: " << source.angularVelocity << endl;
 
 		Matrix skewSymmetricAngVel;		
 		skewSymmetricAngVel = skewSymmetric(source.angularVelocity);
-		cout << "Skew symmetric angular velocity: " << skewSymmetricAngVel << endl;
-		target.orientation = DeltaTime * (skewSymmetricAngVel * source.orientation);
+		//cout << "Skew symmetric angular velocity: " << skewSymmetricAngVel << endl;
+		target.orientation = DeltaTime * (skewSymmetricAngVel * source.orientation); //The actual calculation
+		cout << "Orientation: " << target.orientation << endl;
+		
+		//If the orientation comes out as all zero, set orientation as identity matrix
+		cout << "Is orientation = zero? " << target.orientation.isZero() << endl;
+		if(target.orientation.isZero())
+		{
+			target.orientation.zero();
+			target.orientation.m00 = 1.0;
+			target.orientation.m11 = 1.0;
+			target.orientation.m22 = 1.0;
+		}
+		cout << "Orientation: " << target.orientation << endl;
 		
 		//target.orientation = DeltaTime * tildaMultiply(source.angularVelocity, source.orientation); //This isn't correct - actually Ben, it appears that it is.
 		
-		cout << "Target orientation: " << target.orientation << endl;
+		//cout << "Target orientation: " << target.orientation << endl;
 		
 		//Angular momentum
-		cout << "\n~~~Start target angularMomentum" << endl;
-		cout << "Source angular momentum: " << source.angularMomentum << endl;
-		cout << "Delta time: " << DeltaTime << endl;
-		cout << "Source torque: " << source.torque << endl;
+		//cout << "\n~~~Start target angularMomentum" << endl;
+		//cout << "Source angular momentum: " << source.angularMomentum << endl;
+		//cout << "Delta time: " << DeltaTime << endl;
+		//cout << "Source torque: " << source.torque << endl;
 
 		target.angularMomentum = source.angularMomentum + DeltaTime * source.torque;
 		
-		cout << "Target angular momentum: " << target.angularMomentum << endl;
+		//cout << "Target angular momentum: " << target.angularMomentum << endl;q
 
 		//Reorthogonalize to remove weird bits
 		/*
 		int reorthogonalizationRotor = 2;
 		int &reorthRef = reorthogonalizationRotor;
 		*/
-		cout << "Target orientation: " << target.orientation << endl;
+		//cout << "Target orientation: " << target.orientation << endl;
 		
 		/*
 		for(int i = 0; i<=6; i++)
@@ -388,24 +442,24 @@ void simulation_world::integrate(double DeltaTime)
 		target.orientation.reorthogonalize();
 		
 		//target.orientation.reorthogonalize(BodyList[i].reorthRef);
-		cout << "\n~~~Reorthogonalized orientation: " << target.orientation << endl;
+		//cout << "\n~~~Reorthogonalized orientation: " << target.orientation << endl;
 		
 		//inertia tensor
-		cout << "\n~~~Start inverse world space inertia tensor" << endl;
-		cout << "Inverse body space IT: " << BodyList[i].oneOverBodySpaceInertiaTensor << endl;
+		//cout << "\n~~~Start inverse world space inertia tensor" << endl;
+		//cout << "Inverse body space IT: " << BodyList[i].oneOverBodySpaceInertiaTensor << endl;
 
 		target.oneOverWorldSpaceInertiaTensor = target.orientation * BodyList[i].oneOverBodySpaceInertiaTensor * transpose(target.orientation);
 		
-		cout << "Target inverse world space IT: " << target.oneOverWorldSpaceInertiaTensor << endl;
+		//cout << "Target inverse world space IT: " << target.oneOverWorldSpaceInertiaTensor << endl;
 		
 		//angular velocity
-		cout << "\n~~~Start angular velocity" << endl;
-		cout << "target inverse world space IT: " << target.oneOverWorldSpaceInertiaTensor << endl;
-		cout << "target angular momentum: " << target.angularMomentum << endl;
+		//cout << "\n~~~Start angular velocity" << endl;
+		//cout << "target inverse world space IT: " << target.oneOverWorldSpaceInertiaTensor << endl;
+		//cout << "target angular momentum: " << target.angularMomentum << endl;
 
 		target.angularVelocity = target.oneOverWorldSpaceInertiaTensor * target.angularMomentum;
 		
-		cout << "Target angular velocity: " << target.angularVelocity << endl;
+		//cout << "Target angular velocity: " << target.angularVelocity << endl;
 	}
 	cout << "End integrate" << endl;
 	cout << "~~~~~~~~~~~~~~~~~\n\n" << endl;
@@ -417,7 +471,7 @@ void simulation_world::computeForces(int configurationIndex)
 	cout << "\n~~~~~~~~~~~~~~~~~" << endl;
 	cout << "Started compute Forces" << endl;
 
-	cout << "configuration index input: " << configurationIndex << endl;
+	//cout << "configuration index input: " << configurationIndex << endl;
 	int i;
 	
 	for(i = 0; i < numberOfBodies; i++)
@@ -432,9 +486,9 @@ void simulation_world::computeForces(int configurationIndex)
 		//Adding the force that the gravity acceleration imparts on the body
 		//configuration.torque += (gravityAccel / Body.oneOverMass);  //Where did this come from?
 		configuration.CMforce += gravityAccel / Body.oneOverMass;
-		cout << "Compute forces linear, angular damping: " << -linearDamping << ", " << -angularDamping << endl;
-		cout << "Compute forces CM velocity: " << configuration.CMvelocity << endl;
-		cout << "Compute forces angular velocity: " << configuration.angularVelocity << endl;
+		//cout << "Compute forces linear, angular damping: " << -linearDamping << ", " << -angularDamping << endl;
+		//cout << "Compute forces CM velocity: " << configuration.CMvelocity << endl;
+		//cout << "Compute forces angular velocity: " << configuration.angularVelocity << endl;
 		
 		//There's always a little damping force on the body even if there's no defined damping
 		configuration.CMforce += -linearDamping * configuration.CMvelocity;	//Acts in opposite direction to vertical movement.
@@ -543,7 +597,7 @@ void simLoop(int pause)
 //-----------------------------------------------------------------Build cube body
 void simulation_world::buildCubeBody(float Density, float cubeSize[3], float position[3], float coefficientOfRestitution)
 {
-	if(numberOfBodies <= maxNumberOfBodies)
+	if(numberOfBodies < maxNumberOfBodies)
 	{
 		cout << "\n \n~~~~~~~~~~~~~~~~~" << endl;
 		cout << "Body initialising..." << endl;
@@ -562,6 +616,9 @@ void simulation_world::buildCubeBody(float Density, float cubeSize[3], float pos
 		Body.length = cubeSize[0];
 		Body.width = cubeSize[1];
 		Body.height = cubeSize[2];
+		
+		Body.coefficientOfRestitution = coefficientOfRestitution;
+		cout << "Body coefficient of restitution: " << Body.coefficientOfRestitution << endl;
 		
 		float length = Body.length;
 		float width = Body.width;
@@ -594,9 +651,9 @@ void simulation_world::buildCubeBody(float Density, float cubeSize[3], float pos
 		source.oneOverWorldSpaceInertiaTensor.zero();
 		target.oneOverWorldSpaceInertiaTensor.zero();
 		source.angularVelocity.zero();
-		source.angularVelocity.x = 0.1;
-		source.angularVelocity.y = 0.1;
-		source.angularVelocity.z = 0.1;
+		source.angularVelocity.x = 0.9;
+		source.angularVelocity.y = 0.9;
+		source.angularVelocity.z = 0.9;
 		target.angularVelocity.zero();
 	
 		Body.oneOverMass = 1.0 / Mass;
@@ -680,15 +737,63 @@ void simulation_world::buildCubeBody(float Density, float cubeSize[3], float pos
 	}
 }
 
+void simulation_world::buildFloor(float Mass)
+{
+	if(numberOfFloorPlanes < maxNumberOfFloorPlanes)
+	{
+		floorPlane &Floor = floorList[numberOfFloorPlanes];
+		
+		Floor.planeNormal.zero();
+		Floor.planeNormal.z = 1.0;	//Normal is vertically upwards
+		Floor.d = 0.0;
+		
+		Floor.oneOverMass = 1/Mass;
+		cout << "BUILD FLOOR:: inverse mass: " << Floor.oneOverMass << endl;
+		
+		Floor.centrePosition.zero();
+		
+		Floor.oneOverBodySpaceInertiaTensor.zero();
+		Floor.oneOverBodySpaceInertiaTensor.m00 = 1.0;
+		Floor.oneOverBodySpaceInertiaTensor.m11 = 1.0;
+		Floor.oneOverBodySpaceInertiaTensor.m22 = 1.0;	//Unit matrix made
+		float inertiaMultiplier = Mass * ((Floor.length*Floor.length)/6.0); //The multiplier that goes before the unit matrix in equation before
+		Floor.oneOverBodySpaceInertiaTensor*inertiaMultiplier;
+		Floor.oneOverBodySpaceInertiaTensor = inverse(Floor.oneOverBodySpaceInertiaTensor);
+		cout << "BUILD FLOOR:: inverse body space IT: " << Floor.oneOverBodySpaceInertiaTensor << endl;
+		
+		//As the floor is stationary with "infinite" mass and zero velocity change, can calculate the inverse world space inertia tensor now and store it.
+		Floor.orientation.zero();
+		Floor.orientation.m00 = 1.0;
+		Floor.orientation.m11 = 1.0;
+		Floor.orientation.m22 = 1.0;
+		cout << "BUILD FLOOR:: orientation: " << Floor.orientation << endl;
+		
+		Floor.oneOverWorldSpaceInertiaTensor = Floor.orientation * Floor.oneOverWorldSpaceInertiaTensor * transpose(Floor.orientation);
+		cout << "BUILD FLOOR:: inverse world space IT: " << Floor.oneOverWorldSpaceInertiaTensor << endl;
+		
+		numberOfFloorPlanes++; //Here son
+	}
+	else
+	{
+		cout << "Max number of floor planes created" << endl;
+	}
+}
+
 //-----------------------------------------------------------------Simulation world initialization
 simulation_world::simulation_world(float worldX, float worldY, float worldZ) :SourceConfigIndex(0), TargetConfigIndex(1)
 {
-	//buildCubeBody(5.0, 0.5, 0.5, 0.5, 1.0); //Initial body with density 5.0, dimensions of 1 on each edge, coefficient of restitution 1.0.
+	buildFloor(1000.0); //Hopefully building the floor plane
+	
+	
+	
 	float cubeSizeTest[3] = {0.5, 0.5, 0.5};
-	float cubePosTest[3] = {0.0, 0.0, 1.0};	
+	float cubePosTest[3] = {0.0, 0.0, 0.9};	
 	
 	buildCubeBody(10.0, cubeSizeTest, cubePosTest, 1.0);
 	
+	
+	
+	/*
 	Vector placeHolderVector;
 	
 	placeHolderVector.x = 0.0;
@@ -698,7 +803,7 @@ simulation_world::simulation_world(float worldX, float worldY, float worldZ) :So
 	
 	worldPlanes[0].planeNormal = placeHolderVector;
 	worldPlanes[0].d = 0.0;
-	
+	*/
 	calculateVertices(0);
 }
 
@@ -726,8 +831,8 @@ static void start()
 //Main
 int main(int argc, char**argv)
 {	
-	openFile("cubePositions.txt");
-	positionFileToPositions(lineData);
+	openFile("cubePositions.txt");		//Opens the text file stored in this directory with 100 x,y,z positions
+	positionFileToPositions(lineData);	//The worst named function name ever, but basically changes the array of lines from the text file into a 2D array of cube starting positions ([i][j] where i is a cube, j is the x,y,z positions.)
 	
 	//Timer start initial call
 	mainTIME = 0.0;

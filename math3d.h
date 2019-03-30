@@ -60,6 +60,7 @@ class Matrix {
    inline void zero();
    inline void reorthogonalize(int& reorthogonalizeRotor);
    inline void reorthogonalize();
+   inline bool isZero();	//Added by Ben Shallcroft
 };
 
 extern_inline std::ostream& operator<< (std::ostream& out, const Matrix& M);
