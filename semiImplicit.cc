@@ -212,6 +212,7 @@ simulation_world::checkForCollisions(int configurationIndex)
 void simulation_world::resolveCollisions(int configurationIndex)
 {
 	//For floor plane/
+	cout << "----------------------------------------" << endl;
 	cout << "~~~Start resolve collisions~~~" << endl;
 	cout << "Colliding body index: " << collidingBodyIndex << endl;
 	cout << "Colliding corner index: " << collidingCornerIndex << endl;
@@ -232,7 +233,7 @@ void simulation_world::resolveCollisions(int configurationIndex)
 	
 	Vector velocityBody;
 	velocityBody = configuration.CMvelocity + (configuration.angularVelocity % RBody); //Cross product
-	cout << "Velocity: " << velocityBody << endl;
+	cout << "Body Velocity: " << velocityBody << endl;
 	
 	//Floor stuff
 	Vector positionFloor;
@@ -243,18 +244,25 @@ void simulation_world::resolveCollisions(int configurationIndex)
 	
 	Vector velocityFloor;
 	velocityFloor.zero();
+	cout << "Floor velocity: " << velocityFloor << endl;
 	
-	cout << "----------------" << endl;
+	Vector velocityDifference;
+	velocityDifference = velocityBody - velocityFloor;
+	cout << "Velocity difference: " << velocityDifference << endl;
+	
+	
 	cout << "Collision normal: " << collisionNormal << endl;
 	cout << "Coefficient of restitiution: " << Body.coefficientOfRestitution << endl;
-	cout << "----------------" << endl;
+
+	
+	
 	
 	//Collision response
 	//CH v1
-	//float impulseNumerator = -(1 + Body.coefficientOfRestitution) * dotProduct(velocityBody, collisionNormal);
+	float impulseNumerator = -(1 + Body.coefficientOfRestitution) * dotProduct(velocityBody, collisionNormal);
 	
 	//CH v2
-	float impulseNumerator = dotProduct(collisionNormal, ((1 + Body.coefficientOfRestitution) * velocityBody));
+	//float impulseNumerator = -dotProduct(collisionNormal, ((1 + Body.coefficientOfRestitution) * velocityDifference));
 	cout << "Impulse numerator: " << impulseNumerator << endl;
 	
 	/*
@@ -296,7 +304,7 @@ void simulation_world::resolveCollisions(int configurationIndex)
 	*/
 	
 	
-	configuration.CMvelocity = configuration.CMvelocity - (Body.oneOverMass * impulse);
+	configuration.CMvelocity = configuration.CMvelocity + (Body.oneOverMass * impulse);
 	cout << "CM velocity: " << configuration.CMvelocity << endl;
 	configuration.angularMomentum += (RBody % impulse);
 	cout << "Body angular momenutm: " << configuration.angularMomentum << endl;
@@ -304,6 +312,8 @@ void simulation_world::resolveCollisions(int configurationIndex)
 	configuration.angularVelocity = (configuration.oneOverWorldSpaceInertiaTensor * configuration.angularMomentum);
 	cout << "Body angular velocity: " << configuration.angularVelocity << endl;
 	
+	cout << "End resolve collisions" << endl;
+	cout << "----------------------------------------" << endl;
 }
 
 //-----------------------------------------------------------------render
@@ -529,6 +539,7 @@ void simulation_world::Simulate(double DeltaTime)
 			cout << "Target time: " << targetTime << endl;
 			targetTime = (currentTime + targetTime) / 2;
 			cout << "Target time: " << targetTime << endl;
+			
 			//If next bit trips, interpenetration at start frame
 			assert(fabs(targetTime - currentTime) > epsilon);
 		}
