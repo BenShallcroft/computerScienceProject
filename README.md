@@ -1,4 +1,8 @@
 # computerScienceProject
+
+LATEST FILES FOUND IN FOLDER 16013526Project.
+Only simulator that works is in 16013526Project/floatPrecision and is named floatPrecision.cc
+
 Computer science project - physics engine in c++.\
 
 Progress of a University of Keele (UK) computer science degree final project looking into physics engines built in c++.\
